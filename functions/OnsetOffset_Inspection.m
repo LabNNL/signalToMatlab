@@ -7,23 +7,6 @@ nb_mep = numel(mepNames);
 fig = uifigure('Name','Onset-Offset Inspection','Position',[100 100 900 600]);
 currentIndex = 1;
 
-axesArray = gobjects(nb_mep,1);
-plotsArray = gobjects(nb_mep,1);
-plotsArrayRaw = gobjects(nb_mep,1);
-slider1 = gobjects(nb_mep,1);
-slider2 = gobjects(nb_mep,1);
-slider3 = gobjects(nb_mep,1);
-xline0 = gobjects(nb_mep,1);
-xline1 = gobjects(nb_mep,1);
-xline2 = gobjects(nb_mep,1);
-xline3 = gobjects(nb_mep,1);
-yline1 = gobjects(nb_mep,1);
-yline2 = gobjects(nb_mep,1);
-ylineRawZero = gobjects(nb_mep,1);
-sliderLabel1 = gobjects(nb_mep,1);
-sliderLabel2 = gobjects(nb_mep,1);
-sliderLabel3 = gobjects(nb_mep,1);
-checkboxIncluded = gobjects(nb_mep,1);
 decal = 40;                                                                 % Used to align sliders with the axes
 modifmax=50;                                                                % Maximum manual offset
 fitYWindow = false;                                                         % Whether the Y axis is fit to the -100/100ms window only
@@ -34,33 +17,21 @@ showRawSignal = false;                                                      % Wh
 axesPos = [20 160 680 400];
 btnX = axesPos(1)+axesPos(3)+30;
 
+% MEP data stored in arrays
+x = MEP.Meta.Time_ms;
+onsetArr = zeros(nb_mep,1);
+offsetArr = zeros(nb_mep,1);
+spArr = zeros(nb_mep,1);
+limOnArr = zeros(nb_mep,1);
+limOffArr = zeros(nb_mep,1);
+hasRaw = false(nb_mep,1);
+includedArr = true(nb_mep,1);
+
     for k = 1:nb_mep
-        ax = uiaxes(fig,'Position',axesPos,'Visible','off');
-        ax.Box = 'on';
-        axesArray(k) = ax;
+        hasRaw(k) = isfield(MEP.(mepNames{k}),'EMG');
         modifmax_on = modifmax;
         modifmax_off = modifmax;
 
-        x = MEP.Meta.Time_ms;
-        y = MEP.(mepNames{k}).Enveloppe;
-        yyaxis(ax,'left');
-        plotsArray(k) = plot(ax,x,y,'Visible','off','Color','k','LineWidth',1);
-        ax.XLim = [min(x) 400];
-        ax.YAxis(1).Color = 'k';
-        ylabel(ax,'RMS Envelope (V)');
-
-        if isfield(MEP.(mepNames{k}),'EMG')
-            yRaw = MEP.(mepNames{k}).EMG;
-            yyaxis(ax,'right');
-            plotsArrayRaw(k) = plot(ax,x,yRaw,'Visible','off','Color',[0.6 0.6 0.6],'LineWidth',0.8);
-            ylabel(ax,'Raw MEP signal (V)');
-            ax.YAxis(2).Color = [0.6 0.6 0.6];
-            ylineRawZero(k) = yline(ax, 0, 'Color', [0.85 0.85 0.85], 'LineWidth', 1, 'LineStyle', '--', 'Visible', 'off');
-            yyaxis(ax,'left');
-        end
-
-        xlabel(ax,'Time (ms)');
-        title(ax,mepNames{k},'Interpreter','none');
         onset=MEP.Meta.OnOff_ms(k,1);
         offset=MEP.Meta.OnOff_ms(k,2);
         sp=offset+MEP.(mepNames{k}).Silentperiod;
@@ -76,72 +47,100 @@ btnX = axesPos(1)+axesPos(3)+30;
             modifmax_off = 150;
         end
 
-        % xlines - stim, onset, offset & silent period
-        xline0(k) = xline(ax, 0, 'Color', 'r', 'LineWidth', 1.5, 'LineStyle', ':', 'Label', 'Stimulation', 'LabelHorizontalAlignment', 'left', 'Visible', 'off');
-        xline1(k) = xline(ax, onset, 'Color', '#6B43E5', 'LineWidth', 1.7, 'LineStyle', '--', 'Visible', 'off');
-        xline2(k) = xline(ax, offset, 'Color', '#E54379', 'LineWidth', 1.7, 'LineStyle', '--', 'Visible', 'off');
-        xline3(k) = xline(ax, sp, 'Color', '#AA50DE', 'LineWidth', 1.7, 'LineStyle', '--', 'Visible', 'off');
-
-        % ylines - onset & offset thresholds
-        yline1(k) = yline(ax, MEP.(mepNames{k}).Thresholds.on, 'Color', '#6B43E5', 'LineWidth', .7, 'LineStyle', '--', 'Visible', 'off');
-        yline2(k) = yline(ax, MEP.(mepNames{k}).Thresholds.off, 'Color', '#E54379', 'LineWidth', .7, 'LineStyle', '--', 'Visible', 'off');
-
-        % Slider 1 (Onset)
-        slider1(k) = uislider(fig, ...
-            'Position',[axesPos(1)+decal 120 axesPos(3)-decal 3], ...
-            'Limits',[0 onset+modifmax_on], ...
-            'Value',onset, ...
-            'Visible','off');
-        slider1(k).ValueChangingFcn = @(s,e) updateXline1(k,e.Value);
-
-        % Slider 2 (Offset)
-        slider2(k) = uislider(fig, ...
-            'Position',[axesPos(1)+decal 80 axesPos(3)-decal 3], ...
-            'Limits',[0 offset+modifmax_off], ...
-            'Value',offset, ...
-            'Visible','off');
-        slider2(k).ValueChangingFcn = @(s,e) updateXline2(k,e.Value);
-
-        % Slider 3 (Silent Period)
-        slider3(k) = uislider(fig, ...
-            'Position',[axesPos(1)+decal 40 axesPos(3)-decal 3], ...
-            'Limits',[0 400], ...
-            'Value',sp, ...
-            'Visible','off');
-        slider3(k).ValueChangingFcn = @(s,e) updateXline3(k,e.Value);
-
-        sliderLabel1(k) = uilabel(fig,'Text','Onset','Position',[axesPos(1)-10 112 50 20],'FontWeight','bold','Visible','off','FontColor','#6B43E5');
-        sliderLabel2(k) = uilabel(fig,'Text','Offset','Position',[axesPos(1)-10 72 50 20],'FontWeight','bold','Visible','off','FontColor','#E54379');
-        sliderLabel3(k) = uilabel(fig,'Text','Sil.Per.','Position',[axesPos(1)-10 32 50 20],'FontWeight','bold','Visible','off','FontColor','#AA50DE');
-
-        % Checkbox - include/exclude this MEP from the exported structure
-        checkboxIncluded(k) = uicheckbox(fig, ...
-            'Text','Included if checked', ...
-            'Position',[btnX 405 150 22], ...
-            'Value',true, ...
-            'FontWeight','bold', ...
-            'Visible','off');
-
+        onsetArr(k) = onset;
+        offsetArr(k) = offset;
+        spArr(k) = sp;
+        limOnArr(k) = onset+modifmax_on;
+        limOffArr(k) = offset+modifmax_off;
     end
+
+    ax = uiaxes(fig,'Position',axesPos);
+    ax.Box = 'on';
+
+    yyaxis(ax,'left');
+    plotEnv = plot(ax,x,MEP.(mepNames{1}).Enveloppe,'Color','k','LineWidth',1);
+    ax.XLim = [min(x) 400];
+    ax.YAxis(1).Color = 'k';
+    ylabel(ax,'RMS Envelope (V)');
+
+    plotRaw = gobjects(1);
+    ylineRawZero = gobjects(1);
+    if any(hasRaw)
+        yyaxis(ax,'right');
+        plotRaw = plot(ax,x,NaN(size(x)),'Visible','off','Color',[0.6 0.6 0.6],'LineWidth',0.8);
+        ylabel(ax,'Raw MEP signal (V)');
+        ax.YAxis(2).Color = [0.6 0.6 0.6];
+        ylineRawZero = yline(ax, 0, 'Color', [0.85 0.85 0.85], 'LineWidth', 1, 'LineStyle', '--', 'Visible', 'off');
+        yyaxis(ax,'left');
+    end
+
+    xlabel(ax,'Time (ms)');
+    title(ax,mepNames{1},'Interpreter','none');
+
+    % xlines - stim, onset, offset & silent period
+    xline(ax, 0, 'Color', 'r', 'LineWidth', 1.5, 'LineStyle', ':', 'Label', 'Stimulation', 'LabelHorizontalAlignment', 'left');
+    xline1 = xline(ax, onsetArr(1), 'Color', '#6B43E5', 'LineWidth', 1.7, 'LineStyle', '--');
+    xline2 = xline(ax, offsetArr(1), 'Color', '#E54379', 'LineWidth', 1.7, 'LineStyle', '--');
+    xline3 = xline(ax, spArr(1), 'Color', '#AA50DE', 'LineWidth', 1.7, 'LineStyle', '--');
+
+    % ylines - onset & offset thresholds
+    yline1 = yline(ax, MEP.(mepNames{1}).Thresholds.on, 'Color', '#6B43E5', 'LineWidth', .7, 'LineStyle', '--');
+    yline2 = yline(ax, MEP.(mepNames{1}).Thresholds.off, 'Color', '#E54379', 'LineWidth', .7, 'LineStyle', '--');
+
+    % Slider 1 (Onset)
+    slider1 = uislider(fig, ...
+        'Position',[axesPos(1)+decal 120 axesPos(3)-decal 3], ...
+        'Limits',[0 limOnArr(1)], ...
+        'Value',onsetArr(1));
+    slider1.ValueChangingFcn = @(s,e) updateXline1(e.Value);
+    slider1.ValueChangedFcn = @(s,e) updateXline1(e.Value);
+
+    % Slider 2 (Offset)
+    slider2 = uislider(fig, ...
+        'Position',[axesPos(1)+decal 80 axesPos(3)-decal 3], ...
+        'Limits',[0 limOffArr(1)], ...
+        'Value',offsetArr(1));
+    slider2.ValueChangingFcn = @(s,e) updateXline2(e.Value);
+    slider2.ValueChangedFcn = @(s,e) updateXline2(e.Value);
+
+    % Slider 3 (Silent Period)
+    slider3 = uislider(fig, ...
+        'Position',[axesPos(1)+decal 40 axesPos(3)-decal 3], ...
+        'Limits',[0 400], ...
+        'Value',spArr(1));
+    slider3.ValueChangingFcn = @(s,e) updateXline3(e.Value);
+    slider3.ValueChangedFcn = @(s,e) updateXline3(e.Value);
+
+    uilabel(fig,'Text','Onset','Position',[axesPos(1)-10 112 50 20],'FontWeight','bold','FontColor','#6B43E5');
+    uilabel(fig,'Text','Offset','Position',[axesPos(1)-10 72 50 20],'FontWeight','bold','FontColor','#E54379');
+    uilabel(fig,'Text','Sil.Per.','Position',[axesPos(1)-10 32 50 20],'FontWeight','bold','FontColor','#AA50DE');
+
+    % Checkbox - include/exclude this MEP from the exported structure
+    checkboxIncluded = uicheckbox(fig, ...
+        'Text','Included if checked', ...
+        'Position',[btnX 405 150 22], ...
+        'Value',true, ...
+        'FontWeight','bold', ...
+        'ValueChangedFcn',@(src,evt) updateIncluded(src.Value));
 
     checkboxRowY = axesPos(2)+axesPos(4)+5;
 
     % Checkbox - show/hide the RMS envelope
-    envCheckbox = uicheckbox(fig, ...
+    uicheckbox(fig, ...
         'Text','Show MEP envelope', ...
         'Position',[axesPos(1) checkboxRowY 190 22], ...
         'Value',true, ...
         'ValueChangedFcn',@(src,evt) toggleEnvelope(src.Value));
 
     % Checkbox - overlay the raw MEP signal
-    showRawCheckbox = uicheckbox(fig, ...
+    uicheckbox(fig, ...
         'Text','Show raw MEP signal', ...
         'Position',[axesPos(1)+200 checkboxRowY 200 22], ...
         'Value',false, ...
         'ValueChangedFcn',@(src,evt) toggleShowRaw(src.Value));
 
     % Checkbox - fit the Y axis to the MEP window only
-    fitYCheckbox = uicheckbox(fig, ...
+    uicheckbox(fig, ...
         'Text','Fit Y axis on MEP window (-100 to 100 ms)', ...
         'Position',[axesPos(1)+410 checkboxRowY 400 22], ...
         'Value',false, ...
@@ -163,65 +162,66 @@ btnX = axesPos(1)+axesPos(3)+30;
 
 %%  Functions
 %%
-    function updateXline1(idx, val)
-        xline1(idx).Value = val;
+    function updateXline1(val)
+        onsetArr(currentIndex) = val;
+        xline1.Value = val;
     end
 
-    function updateXline2(idx, val)
-        xline2(idx).Value = val;
+    function updateXline2(val)
+        offsetArr(currentIndex) = val;
+        xline2.Value = val;
     end
 
-    function updateXline3(idx, val)
-        xline3(idx).Value = val;
+    function updateXline3(val)
+        spArr(currentIndex) = val;
+        xline3.Value = val;
     end
 
-    function hideCurve(idx)
-        ax = axesArray(idx);
-        ax.Visible = 'off';
-        plotsArray(idx).Visible = 'off';
-        ax.YAxis(1).Visible = 'off';
-        ax.YAxis(1).Label.Visible = 'off';
-        if isgraphics(plotsArrayRaw(idx))
-            plotsArrayRaw(idx).Visible = 'off';
-            ylineRawZero(idx).Visible = 'off';
-            ax.YAxis(2).Visible = 'off';
-            ax.YAxis(2).Label.Visible = 'off';
-        end
-        slider1(idx).Visible = 'off';
-        slider2(idx).Visible = 'off';
-        slider3(idx).Visible = 'off';
-        xline0(idx).Visible = 'off';
-        xline1(idx).Visible = 'off';
-        xline2(idx).Visible = 'off';
-        xline3(idx).Visible = 'off';
-        yline1(idx).Visible = 'off';
-        yline2(idx).Visible = 'off';
-        sliderLabel1(idx).Visible = 'off';
-        sliderLabel2(idx).Visible = 'off';
-        sliderLabel3(idx).Visible = 'off';
-        checkboxIncluded(idx).Visible = 'off';
+    function updateIncluded(val)
+        includedArr(currentIndex) = logical(val);
+    end
+
+    function saveCurrent()
+        onsetArr(currentIndex) = xline1.Value;
+        offsetArr(currentIndex) = xline2.Value;
+        spArr(currentIndex) = xline3.Value;
+        includedArr(currentIndex) = logical(checkboxIncluded.Value);
+    end
+
+    function setSlider(s, lim, val)
+        s.Value = 0;
+        s.Limits = [0 lim];
+        s.Value = val;
     end
 
     function showCurve(idx)
-        axesArray(idx).Visible = 'on';
-        updateEnvelopeVisibility(idx);
+        % Load the data of MEP idx into the shared axes, lines and sliders
+        mepData = MEP.(mepNames{idx});
+
+        title(ax,mepNames{idx},'Interpreter','none');
+        plotEnv.YData = mepData.Enveloppe;
+        if isgraphics(plotRaw)
+            if hasRaw(idx)
+                plotRaw.YData = mepData.EMG;
+            else
+                plotRaw.YData = NaN(size(x));
+            end
+        end
+        ax.XLim = [min(x) 400];
+
+        yline1.Value = mepData.Thresholds.on;
+        yline2.Value = mepData.Thresholds.off;
+        xline1.Value = onsetArr(idx);
+        xline2.Value = offsetArr(idx);
+        xline3.Value = spArr(idx);
+
+        setSlider(slider1, limOnArr(idx), onsetArr(idx));
+        setSlider(slider2, limOffArr(idx), offsetArr(idx));
+        setSlider(slider3, 400, spArr(idx));
+        checkboxIncluded.Value = includedArr(idx);
+
+        updateEnvelopeVisibility();
         updateRawVisibility(idx);
-        slider1(idx).Visible = 'on';
-        slider2(idx).Visible = 'on';
-        slider3(idx).Visible = 'on';
-        xline0(idx).Visible = 'on';
-        xline1(idx).Visible = 'on';
-        xline2(idx).Visible = 'on';
-        xline3(idx).Visible = 'on';
-        sliderLabel1(idx).Visible = 'on';
-        sliderLabel2(idx).Visible = 'on';
-        sliderLabel3(idx).Visible = 'on';
-        checkboxIncluded(idx).Visible = 'on';
-
-        slider1(idx).Value = xline1(idx).Value;
-        slider2(idx).Value = xline2(idx).Value;
-        slider3(idx).Value = xline3(idx).Value;
-
         applyYFit(idx);
     end
 
@@ -237,15 +237,14 @@ btnX = axesPos(1)+axesPos(3)+30;
 
     function toggleEnvelope(value)
         envelopeVisible = logical(value);
-        updateEnvelopeVisibility(currentIndex);
+        updateEnvelopeVisibility();
     end
 
-    function updateEnvelopeVisibility(idx)
-        ax = axesArray(idx);
+    function updateEnvelopeVisibility()
         onOff = onOffText(envelopeVisible);
-        plotsArray(idx).Visible = onOff;
-        yline1(idx).Visible = onOff;
-        yline2(idx).Visible = onOff;
+        plotEnv.Visible = onOff;
+        yline1.Visible = onOff;
+        yline2.Visible = onOff;
         ax.YAxis(1).Visible = 'on';
         ax.YAxis(1).Label.Visible = onOff;
         if envelopeVisible
@@ -257,15 +256,15 @@ btnX = axesPos(1)+axesPos(3)+30;
     end
 
     function updateRawVisibility(idx)
-        if ~isgraphics(plotsArrayRaw(idx))
+        if ~isgraphics(plotRaw)
             return
         end
-        ax = axesArray(idx);
-        plotsArrayRaw(idx).Visible = onOffText(showRawSignal);
-        ylineRawZero(idx).Visible = onOffText(showRawSignal);
+        showRaw = showRawSignal && hasRaw(idx);
+        plotRaw.Visible = onOffText(showRaw);
+        ylineRawZero.Visible = onOffText(showRaw);
         ax.YAxis(2).Visible = 'on';
-        ax.YAxis(2).Label.Visible = onOffText(showRawSignal);
-        if showRawSignal
+        ax.YAxis(2).Label.Visible = onOffText(showRaw);
+        if showRaw
             ax.YAxis(2).Color = [0.6 0.6 0.6];
             ax.YAxis(2).TickValuesMode = 'auto';
             ax.YAxis(2).TickLabelsMode = 'auto';
@@ -284,21 +283,19 @@ btnX = axesPos(1)+axesPos(3)+30;
     end
 
     function applyYFit(idx)
-        ax = axesArray(idx);
-
         yyaxis(ax,'left');
         if ~fitYWindow
             ax.YLimMode = 'auto';
         else
-            fitAxisToWindow(plotsArray(idx));
+            fitAxisToWindow(plotEnv);
         end
 
-        if isgraphics(plotsArrayRaw(idx))
+        if isgraphics(plotRaw)
             yyaxis(ax,'right');
-            if ~fitYWindow
+            if ~fitYWindow || ~hasRaw(idx)
                 ax.YLimMode = 'auto';
             else
-                fitAxisToWindow(plotsArrayRaw(idx));
+                fitAxisToWindow(plotRaw);
             end
             yyaxis(ax,'left');
         end
@@ -326,7 +323,7 @@ btnX = axesPos(1)+axesPos(3)+30;
     end
 
     function switchCurve(dir)
-        hideCurve(currentIndex);
+        saveCurrent();
         currentIndex = currentIndex + dir;
         if currentIndex > nb_mep, currentIndex = 1; end
         if currentIndex < 1, currentIndex = nb_mep; end
@@ -335,25 +332,24 @@ btnX = axesPos(1)+axesPos(3)+30;
     end
 
     function jumpTo(idx)
-        hideCurve(currentIndex);
+        saveCurrent();
         currentIndex = idx;
         showCurve(currentIndex);
         lblInfo.Text = sprintf('MEP %d / %d',currentIndex,nb_mep);
     end
 
     function finishCallback()
-        positions = zeros(nb_mep,2);
+        saveCurrent();
+        positions = [onsetArr offsetArr];
         positions_idx = zeros(nb_mep,2);
         MEPnew=MEP;
         for i = 1:nb_mep
-            positions(i,1) = xline1(i).Value;
-            positions(i,2) = xline2(i).Value;
-            positions_idx(i,1) = find(abs(x - xline1(i).Value) == min(abs(x - xline1(i).Value)), 1);
-            positions_idx(i,2) = find(abs(x - xline2(i).Value) == min(abs(x - xline2(i).Value)), 1);
+            positions_idx(i,1) = find(abs(x - onsetArr(i)) == min(abs(x - onsetArr(i))), 1);
+            positions_idx(i,2) = find(abs(x - offsetArr(i)) == min(abs(x - offsetArr(i))), 1);
             MEPnew.(mepNames{i}).OnOff_ms=positions(i,:);
             MEPnew.(mepNames{i}).OnOff_idx=positions_idx(i,:);
-            MEPnew.(mepNames{i}).Silentperiod=xline3(i).Value-xline2(i).Value;
-            MEPnew.(mepNames{i}).Included=logical(checkboxIncluded(i).Value);
+            MEPnew.(mepNames{i}).Silentperiod=spArr(i)-offsetArr(i);
+            MEPnew.(mepNames{i}).Included=includedArr(i);
         end
         MEPnew.Meta.OnOff_ms=positions;
         uiresume(fig);
