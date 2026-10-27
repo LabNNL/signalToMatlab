@@ -267,6 +267,34 @@ for k=1:numel(names)
     Summ(k).SPduration_ms = SPD;
 end
 
+% ---------- Exclude MEPs unchecked in OnsetOffset_Inspection ----------
+included = true(numel(names),1);
+for k = 1:numel(names)
+    if isfield(MEP.(names{k}), 'Included')
+        included(k) = MEP.(names{k}).Included;
+    end
+end
+
+excludedNames = names(~included);
+for k = 1:numel(excludedNames)
+    MEP = rmfield(MEP, excludedNames{k});
+end
+
+MEP.Meta.OnOff_ms  = MEP.Meta.OnOff_ms(included,:);
+MEP.Meta.MEP_Order = MEP.Meta.MEP_Order(included);
+Summ = Summ(included);
+
+if isfield(MEP,'All')
+    MEP.All = MEP.All(included,:);
+end
+
+keptNames = names(included);
+for k = 1:numel(keptNames)
+    if isfield(MEP.(keptNames{k}), 'Included')
+        MEP.(keptNames{k}) = rmfield(MEP.(keptNames{k}), 'Included');
+    end
+end
+
 summary = struct2table(Summ);
 
 % ---------- Subfunctions ----------
