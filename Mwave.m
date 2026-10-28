@@ -14,7 +14,7 @@ addpath("functions");
 addpath("matcfs64c");
 %% ================= USER SETTINGS =================
 defaultDir   = pwd;  % Start file selection in the current working folder
-EMG_field  = "EMG_5";      % <<< change
+EMG_field = '';  % Select from available channels when the recording is loaded
 % Display settings
 initialWindow_ms = 1000;   % width of the initial view in ms
 scrollStep_ms    = 500;    % mouse wheel movement in ms
@@ -29,7 +29,7 @@ if isequal(fileName,0)
 end
 fullPath = fullfile(fileDir, fileName);
 %% ================= LOAD ORIGINAL EMG (NO FILTER) =================
-[t, x, Fs, ~, tADC, adcSignal] = loadOneEMG(fullPath, EMG_field);
+[t, x, Fs, ~, tADC, adcSignal, EMG_field] = loadOneEMG(fullPath, EMG_field);
 fprintf('\nLoaded file:\n%s\n', fullPath);
 fprintf('EMG channel: %s\n', EMG_field);
 fprintf('Sampling frequency: %.1f Hz\n', Fs);
@@ -68,7 +68,7 @@ disp(Export);
 %% =======================================================================
 %% ========================= LOCAL FUNCTIONS =============================
 %% =======================================================================
-function [t, x, Fs, usedFilter, tADC, adcSignal] = loadOneEMG(fullPath, EMG_field)
+function [t, x, Fs, usedFilter, tADC, adcSignal, EMG_field] = loadOneEMG(fullPath, EMG_field)
     [~, ~, ext] = fileparts(fullPath);
     ext = lower(ext);
     switch ext
@@ -121,6 +121,27 @@ function [t, x, Fs, usedFilter, tADC, adcSignal] = loadOneEMG(fullPath, EMG_fiel
         end
         data.(newName) = raw.(oldName);
     end
+    % Offer only EMG channels present in this recording.
+    emgs = fieldnames(data);
+    emgs = emgs(startsWith(emgs,'EMG_'));
+    if isempty(emgs)
+        error('No EMG channels found in %s.', fullPath);
+    end
+    if isempty(EMG_field)
+        [~, recordingName, recordingExt] = fileparts(fullPath);
+        [selection, confirmed] = listdlg( ...
+            'PromptString', {'Select the EMG channel to analyze:', ...
+                [recordingName recordingExt]}, ...
+            'Name', 'Select EMG channel', ...
+            'SelectionMode', 'single', ...
+            'ListString', emgs, ...
+            'ListSize', [320 200]);
+        if ~confirmed || isempty(selection)
+            error('EMG:SelectionCancelled', 'Analysis cancelled: no EMG channel selected.');
+        end
+        EMG_field = emgs{selection};
+    end
+
     if ~isfield(data, EMG_field)
         emgs = fieldnames(data);
         emgs = emgs(startsWith(emgs,'EMG_'));
