@@ -18,7 +18,7 @@ addpath("matcfs64c");
 
 %% ===== User settings =====
 defaultDir   = pwd;  % Start file selection in the current working folder
-EMG_field    = "EMG_6";                     % <<< change
+EMG_field    = '';  % Select from available channels when PRE is loaded
 doFilter     = true;                        % uses filtrage(20–450 Hz) if available
 nTrials      = 3;                           % MVC repetitions
 
@@ -40,6 +40,7 @@ postPath = fullfile(postDir, postFile);
 
 %% Keep PRE and POST preprocessing identical if the user chose raw EMG after a filter failure.
 doFilter = preMeta.doFilter;
+EMG_field = preMeta.EMG_field;  % Use the selected PRE channel for POST too
 
 %% ===== Process POST =====
 [PostTrials, PostSummary, postMeta] = processOneMVCfile_entire(postPath, EMG_field, doFilter, nTrials, "POST");
@@ -86,7 +87,7 @@ writetable(Change, outCSV_change);
 
 function [TrialsTable, SummaryTable, meta] = processOneMVCfile_entire(fullPath, EMG_field, doFilter, nTrials, label)
     % Load EMG
-    [t, x, Fs, usedFilter] = loadOneEMG(fullPath, EMG_field, doFilter);
+    [t, x, Fs, usedFilter, EMG_field] = loadOneEMG(fullPath, EMG_field, doFilter);
 
     % Select segments + compute metrics (ENTIRE selected window)
     TrialsTable = selectAndComputeTrials_entire(t, x, Fs, nTrials, label);
@@ -112,7 +113,7 @@ function [TrialsTable, SummaryTable, meta] = processOneMVCfile_entire(fullPath, 
     meta.doFilter  = usedFilter;
 end
 
-function [t, x, Fs, usedFilter] = loadOneEMG(fullPath, EMG_field, doFilter)
+function [t, x, Fs, usedFilter, EMG_field] = loadOneEMG(fullPath, EMG_field, doFilter)
     [~, ~, ext] = fileparts(fullPath);
     ext = lower(ext);
 
@@ -148,6 +149,27 @@ function [t, x, Fs, usedFilter] = loadOneEMG(fullPath, EMG_field, doFilter)
             newName = regexprep(oldName, '_\d+$', '');
         end
         data.(newName) = raw.(oldName);
+    end
+
+    % Offer only EMG channels present in this recording.
+    emgs = fieldnames(data);
+    emgs = emgs(startsWith(emgs,'EMG_'));
+    if isempty(emgs)
+        error('No EMG channels found in %s.', fullPath);
+    end
+    if isempty(EMG_field)
+        [~, recordingName, recordingExt] = fileparts(fullPath);
+        [selection, confirmed] = listdlg( ...
+            'PromptString', {'Select the EMG channel to analyze:', ...
+                [recordingName recordingExt]}, ...
+            'Name', 'Select EMG channel', ...
+            'SelectionMode', 'single', ...
+            'ListString', emgs, ...
+            'ListSize', [320 200]);
+        if ~confirmed || isempty(selection)
+            error('EMG:SelectionCancelled', 'Analysis cancelled: no EMG channel selected.');
+        end
+        EMG_field = emgs{selection};
     end
 
     if ~isfield(data, EMG_field)
