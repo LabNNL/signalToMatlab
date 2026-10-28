@@ -17,7 +17,7 @@ addpath("functions");
 addpath("matcfs64c");
 
 %% ===== User settings =====
-defaultDir   = "D:\POST-DOC\PHASE2\CP participants\PAS1_EXO_01(Idris)\post-pre\right leg\TA\MVC";  % <<< change
+defaultDir   = pwd;  % Start file selection in the current working folder
 EMG_field    = "EMG_6";                     % <<< change
 doFilter     = true;                        % uses filtrage(20–450 Hz) if available
 nTrials      = 3;                           % MVC repetitions
