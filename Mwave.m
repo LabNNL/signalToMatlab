@@ -13,13 +13,13 @@ clc; clear; close all
 addpath("functions");
 addpath("matcfs64c");
 %% ================= USER SETTINGS =================
-defaultDir = "D:\POST-DOC\PHASE2\CP participants\PAS1_EXO_01(Idris)\S12\Test";  % <<< change
+defaultDir   = pwd;  % Start file selection in the current working folder
 EMG_field  = "EMG_5";      % <<< change
 % Display settings
 initialWindow_ms = 1000;   % width of the initial view in ms
 scrollStep_ms    = 500;    % mouse wheel movement in ms
 % Save folder
-saveFolder = "C:\Users\MReza\Desktop\New folder (2)";
+saveFolder = pwd;  % Save outputs in the current working folder
 %% ================= PICK FILE =================
 [fileName, fileDir] = uigetfile( ...
     {'*.cfs;*.mat','CFS or MAT (*.cfs, *.mat)'; '*.cfs','CFS (*.cfs)'; '*.mat','MAT (*.mat)'}, ...
